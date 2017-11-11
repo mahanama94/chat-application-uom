@@ -77,13 +77,13 @@ init(Args) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec(connected(Event :: term(), State :: #state{}) ->
-  {next_state, NextStateName :: atom(), NextState :: #state{}} |
-  {next_state, NextStateName :: atom(), NextState :: #state{},
-    timeout() | hibernate} |
-  {stop, Reason :: term(), NewState :: #state{}}).
-connected(_Event, State) ->
-  {next_state, connected, State}.
+% -spec(connected(Event :: term(), State :: #state{}) ->
+  % {next_state, NextStateName :: atom(), NextState :: #state{}} |
+  % {next_state, NextStateName :: atom(), NextState :: #state{},
+    % timeout() | hibernate} |
+  % {stop, Reason :: term(), NewState :: #state{}}).
+connected(_Event, _From, State) ->
+  {reply, ok, idle, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -96,38 +96,41 @@ connected(_Event, State) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
--spec(connected(Event :: term(), From :: {pid(), term()},
-    State :: #state{}) ->
-  {next_state, NextStateName :: atom(), NextState :: #state{}} |
-  {next_state, NextStateName :: atom(), NextState :: #state{},
-    timeout() | hibernate} |
-  {reply, Reply, NextStateName :: atom(), NextState :: #state{}} |
-  {reply, Reply, NextStateName :: atom(), NextState :: #state{},
-    timeout() | hibernate} |
-  {stop, Reason :: normal | term(), NewState :: #state{}} |
-  {stop, Reason :: normal | term(), Reply :: term(),
-    NewState :: #state{}}).
+% -spec(connected(Event :: term(), From :: {pid(), term()},
+    % State :: #state{}) ->
+  % {next_state, NextStateName :: atom(), NextState :: #state{}} |
+  % {next_state, NextStateName :: atom(), NextState :: #state{},
+    % timeout() | hibernate} |
+  % {reply, Reply, NextStateName :: atom(), NextState :: #state{}} |
+  % {reply, Reply, NextStateName :: atom(), NextState :: #state{},
+    % timeout() | hibernate} |
+  % {stop, Reason :: normal | term(), NewState :: #state{}} |
+  % {stop, Reason :: normal | term(), Reply :: term(),
+    % NewState :: #state{}}).
 
-connected({send, {RecieverName, Message}}, _From, State) ->
+connected({send, {RecieverName, Message}}, State) ->
+	%%io:fwrite("Send ~p ~p ~n",[RecieverName, Message]),
   Clients = State#state.clients,
   SenderName = State#state.name,
   Reply =
   case proplists:get_value(RecieverName, Clients) of
     undefined ->
       {error, no_client};
-    {_Name, HandlerPid} ->
+    HandlerPid ->
       gen_fsm:send_event(HandlerPid, {recieve, {SenderName, Message}})
   end,
-  {reply, Reply, connected, State};
+  {next_state, connected, State};
 
-connected({recieve, {SenderName, Message}}, _From, State) ->
+connected({recieve, {SenderName, Message}}, State) ->
+%%io:fwrite("receive ~p ~p ~n",[SenderName, Message]),
   ClientPid = State#state.client_pid,
-  Reply = gen_server:call(ClientPid, {recieve, SenderName, Message}),
-  {reply, Reply, connected, State};
+  Reply = gen_server:call(ClientPid, {recieve, {SenderName, Message}}),
+ %%ClientPid !  {recieve, SenderName, Message},
+  {next_state, connected, State};
 
-connected(_Event, _From, State) ->
+connected(_Event,  State) ->
   Reply = ok,
-  {reply, Reply, connected, State}.
+  {next_state, connected, State}.
 
 %%--------------------------------------------------------------------
 %% @private

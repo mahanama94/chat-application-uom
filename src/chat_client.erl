@@ -62,7 +62,8 @@ start_link(Name) ->
   {ok, State :: #state{}} | {ok, State :: #state{}, timeout() | hibernate} |
   {stop, Reason :: term()} | ignore).
 init(Args) ->
-  Name = proplists:get_value(name, Args),
+  %%Name = proplists:get_value(name, Args),
+  {value, {_, Name}} = lists:keysearch(name, 1, Args),
   io:fwrite("Name : ~p ~n", [Name]),
   case gen_server:call({global, chat_server}, {register, Name}) of
     {ok, HandlerPid} ->
@@ -92,7 +93,7 @@ handle_call({join, Name}, _From, State) ->
   io:fwrite("~p Joined the Server ~n", [Name]),
   {reply, ok, State};
 
-handle_call({send, Name, Message}, _From, State) ->
+handle_call({send, {Name, Message}}, _From, State) ->
   HandlerPid = State#state.handler_pid,
   Reply = gen_fsm:send_event(HandlerPid, {send, {Name, Message}}),
   {reply, Reply, State};
@@ -170,4 +171,4 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 
 send_messge(Name, Message) ->
-  gen_server:call({local, ?SERVER}, {send, {Name, Message}}).
+  gen_server:call(?SERVER, {send, {Name, Message}}).
